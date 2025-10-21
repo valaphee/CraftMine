@@ -1,0 +1,28 @@
+cargo-features = ["panic-immediate-abort"]
+
+[workspace]
+resolver = "3"
+members = ["asset", "proto", "proto_derive"]
+
+[package]
+name = "craftmine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.17" }
+
+craftmine_asset = { path = "asset" }
+craftmine_proto = { path = "proto" }
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+panic = "abort"
