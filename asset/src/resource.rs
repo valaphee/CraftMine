@@ -5,11 +5,11 @@ use bevy::{
 use thiserror::Error;
 
 thread_local! {
-    static LOAD_CTX_PTR: std::cell::Cell<*mut ()> = std::cell::Cell::new(std::ptr::null_mut());
+    static LOAD_CONTEXT_PTR: std::cell::Cell<*mut ()> = std::cell::Cell::new(std::ptr::null_mut());
 }
 
 fn with_load_context<R>(f: impl FnOnce(&mut LoadContext<'_>) -> R) -> R {
-    LOAD_CTX_PTR.with(|cell| {
+    LOAD_CONTEXT_PTR.with(|cell| {
         let ptr = cell.get();
         assert!(!ptr.is_null());
         let ctx: &mut LoadContext<'_> = unsafe { &mut *(ptr as *mut LoadContext<'_>) };
@@ -34,7 +34,7 @@ impl<A> Default for JsonLoader<A> {
     }
 }
 
-impl<A> AssetLoader for JsonLoader<A>
+impl<A: ResourceType> AssetLoader for JsonLoader<A>
 where
     for<'de> A: serde::Deserialize<'de> + Asset,
 {
@@ -50,10 +50,15 @@ where
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        LOAD_CTX_PTR.with(|cell| cell.set(load_context as *mut _ as *mut ()));
+        LOAD_CONTEXT_PTR.with(|cell| cell.set(load_context as *mut _ as *mut ()));
         let asset = serde_json::from_slice::<A>(&bytes);
-        LOAD_CTX_PTR.with(|cell| cell.set(std::ptr::null_mut()));
+        LOAD_CONTEXT_PTR.with(|cell| cell.set(std::ptr::null_mut()));
         Ok(asset?)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        let extension: &'static str = format!("{}.{}", A::prefix(), A::extension()).leak();
+        vec![extension].leak()
     }
 }
 

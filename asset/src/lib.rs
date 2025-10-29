@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+mod atlas;
+pub use atlas::*;
+
 mod block_model;
 pub use block_model::*;
 

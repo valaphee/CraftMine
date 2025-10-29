@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bevy::{
     asset::{Asset, Handle},
     image::Image,
+    math::Vec3,
     reflect::TypePath,
 };
 use serde::{Deserialize, Serialize, de::IntoDeserializer};
@@ -63,9 +64,19 @@ impl<'de> Deserialize<'de> for Texture {
 
 #[derive(Serialize, Deserialize)]
 pub struct BlockElement {
-    pub from: [f32; 3],
-    pub to: [f32; 3],
-    pub faces: HashMap<Direction, BlockElementFace>,
+    pub from: Vec3,
+    pub to: Vec3,
+    pub faces: BlockElementFaces,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockElementFaces {
+    pub down: Option<BlockElementFace>,
+    pub up: Option<BlockElementFace>,
+    pub north: Option<BlockElementFace>,
+    pub south: Option<BlockElementFace>,
+    pub west: Option<BlockElementFace>,
+    pub east: Option<BlockElementFace>,
 }
 
 #[derive(Serialize, Deserialize)]

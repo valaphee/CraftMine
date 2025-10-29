@@ -5,13 +5,15 @@ use bevy::{
     reflect::TypePath,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::{OneOrMany, serde_as};
 
 use crate::{BlockModel, ResourceType, resource_location};
 
+#[serde_as]
 #[derive(Serialize, Deserialize, TypePath, Asset)]
 pub enum BlockModelDefinition {
     #[serde(rename = "variants")]
-    Simple(HashMap<String, BlockStateModel>),
+    Simple(#[serde_as(as = "HashMap<_, OneOrMany<_>>")] HashMap<String, Vec<BlockStateModel>>),
     #[serde(rename = "multipart")]
     MultiPart(Vec<MultiPartSelector>),
 }
@@ -26,12 +28,12 @@ impl ResourceType for BlockModelDefinition {
     }
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct MultiPartSelector {
-    #[serde(rename = "when")]
-    pub condition: MultiPartCondition,
     #[serde(rename = "apply")]
-    pub model: BlockStateModel,
+    #[serde_as(as = "OneOrMany<_>")]
+    pub model: Vec<BlockStateModel>,
 }
 
 #[derive(Serialize, Deserialize)]
