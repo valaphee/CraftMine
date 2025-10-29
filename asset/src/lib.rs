@@ -1,9 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-mod atlas;
-pub use atlas::*;
-
 mod block_model;
 pub use block_model::*;
 
@@ -27,7 +24,7 @@ impl Plugin for AssetPlugin {
     }
 }
 
-#[derive(Serialize, Deserialize, Reflect, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Reflect, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Down,

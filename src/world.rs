@@ -1,16 +1,17 @@
 use bevy::{asset::RenderAssetUsages, mesh::Indices, prelude::*};
 
-use crate::block::BlockModel;
+use crate::block::{BlockModel, BlockTextures};
 
 #[derive(Component)]
-pub struct Chunk([Entity; 16 * 16 * 16]);
+pub struct Chunk(pub [Entity; 16 * 16 * 16]);
 
-pub fn mesh_chunk(
+pub fn mesh_chunks(
     mut commands: Commands,
 
     mut meshes: ResMut<Assets<Mesh>>,
     chunks: Query<(Entity, &Chunk), Without<Mesh3d>>,
-    blocks: Query<&BlockModel>,
+    blocks: Res<BlockTextures>,
+    block_models: Query<&BlockModel>,
 ) {
     for (entity, chunk) in chunks.iter() {
         let mut positions = Vec::new();
@@ -23,7 +24,7 @@ pub fn mesh_chunk(
                 ((i >> 8) & 0xF) as f32,
             );
 
-            let block_model = blocks.get(block).unwrap();
+            let block_model = block_models.get(block).unwrap();
             for j in 0..7 {
                 positions.extend(
                     block_model.0[j]
@@ -54,7 +55,7 @@ pub fn mesh_chunk(
                     .with_inserted_indices(Indices::U32(indices)),
                 ),
             ),
-            MeshMaterial3d(),
+            MeshMaterial3d(blocks.material.clone())
         ));
     }
 }
