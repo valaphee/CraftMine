@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["asset", "proto", "proto_derive"]
+members = ["asset", "asset_java", "proto", "proto_derive"]
 
 [workspace.dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy.git", default-features = false }
@@ -14,6 +14,7 @@ edition = "2024"
 bevy = { workspace = true, features = ["2d", "3d", "ui", "free_camera"] }
 
 craftmine_asset = { path = "asset" }
+craftmine_asset_java = { path = "asset_java" }
 craftmine_proto = { path = "proto" }
 
 [profile.dev.package."*"]

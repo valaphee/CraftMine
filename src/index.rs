@@ -1,9 +1,8 @@
 use std::hash::Hash;
 
 use bevy::{
-    ecs::system::{ReadOnlySystemParam, SystemParam},
+    ecs::{component::Component, entity::Entity, lifecycle::{Insert, Remove}, observer::On, resource::Resource, system::{Query, ReadOnlySystemParam, ResMut, SystemParam}, world::{FromWorld, World}},
     platform::collections::HashMap,
-    prelude::*,
 };
 
 pub struct Index<'w, T: Send + Sync + Eq + Hash + 'static>(ResMut<'w, IndexStorage<T>>);

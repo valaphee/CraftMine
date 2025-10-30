@@ -1,6 +1,4 @@
-use std::f32::consts::PI;
-
-use bevy::{camera_controller::free_camera::{FreeCamera, FreeCameraPlugin}, light::light_consts::lux::AMBIENT_DAYLIGHT, prelude::*};
+use bevy::{camera_controller::free_camera::{FreeCamera, FreeCameraPlugin}, color::palettes::css::WHITE, light::light_consts::lux::{AMBIENT_DAYLIGHT, OVERCAST_DAY, RAW_SUNLIGHT}, prelude::*};
 
 use crate::{
     block::{Block, find_block_textures, find_block_model_definitions, load_block_textures, load_block_model_definitions},
@@ -17,7 +15,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             FreeCameraPlugin,
-            craftmine_asset::AssetPlugin,
+            craftmine_asset_java::AssetPlugin,
         ))
         .init_state::<AppState>()
         .add_systems(OnEnter(AppState::Load), (find_block_textures, ))
@@ -38,7 +36,7 @@ pub enum AppState {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,) {
-    commands.spawn((
+    /*commands.spawn((
         DirectionalLight {
             illuminance: AMBIENT_DAYLIGHT,
             shadows_enabled: true,
@@ -49,11 +47,17 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>,
                     rotation: Quat::from_rotation_x(-PI / 4.),
                     ..default()
                 },
-    ));
+    ));*/
     commands.spawn((
         Camera3d::default(),
         Transform::default(),
         FreeCamera::default(),
+        AmbientLight {
+                color: WHITE.into(),
+                brightness: OVERCAST_DAY,
+                ..default()
+            },
+            Msaa::Off
     ));
 }
 
@@ -69,10 +73,10 @@ fn load_chunks(mut commands: Commands, blocks: Index<Block>, chunks: Query<&Chun
     let Some(air) = blocks.get(&Block("air".to_owned())) else {
         return;
     };
-    let Some(diorite) = blocks.get(&Block("diorite".to_owned())) else {
+    let Some(cmdblock) = blocks.get(&Block("command_block[conditional=false,facing=down]".to_owned())) else {
         return;
     };
-    let Some(stone) = blocks.get(&Block("stone".to_owned())) else {
+    let Some(stone) = blocks.get(&Block("wall_torch[facing=south]".to_owned())) else {
         return;
     };
     let Some(acacia_log_x) = blocks.get(&Block("acacia_log[axis=x]".to_owned())) else {
@@ -97,5 +101,6 @@ fn load_chunks(mut commands: Commands, blocks: Index<Block>, chunks: Query<&Chun
     chunk_data[4] = acacia_log_y;
     chunk_data[5] = acacia_log_z;
     chunk_data[6] = repeater;
+    chunk_data[7] = cmdblock;
     commands.spawn(Chunk(chunk_data));
 }

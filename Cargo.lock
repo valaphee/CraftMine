@@ -1922,11 +1922,23 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "craftmine_asset",
+ "craftmine_asset_java",
  "craftmine_proto",
 ]
 
 [[package]]
 name = "craftmine_asset"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "craftmine_asset_java"
 version = "0.1.0"
 dependencies = [
  "bevy",

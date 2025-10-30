@@ -23,7 +23,7 @@ pub struct BlockModel(pub [BlockModelFace; 7]);
 
 #[derive(Default)]
 pub struct BlockModelFace {
-    pub positions: Vec<Vec3A>,
+    pub positions: Vec<Vec3>,
     pub normals: Vec<[f32; 3]>,
     pub uvs: Vec<[f32; 2]>,
 }
@@ -84,12 +84,12 @@ pub fn load_block_model_definitions(
 
     blocks: Index<Block>,
 
-    block_model_definitions: Res<Assets<craftmine_asset::BlockModelDefinition>>,
+    block_model_definitions: Res<Assets<craftmine_asset_java::BlockModelDefinition>>,
     mut block_model_definition_events: MessageReader<
-        AssetEvent<craftmine_asset::BlockModelDefinition>,
+        AssetEvent<craftmine_asset_java::BlockModelDefinition>,
     >,
 
-    block_models: Res<Assets<craftmine_asset::BlockModel>>,
+    block_models: Res<Assets<craftmine_asset_java::BlockModel>>,
     block_textures: Res<BlockTextures>,
 ) {
     for block_model_definition_event in block_model_definition_events.read() {
@@ -101,9 +101,10 @@ pub fn load_block_model_definitions(
         let name = path.path().file_prefix().unwrap().to_string_lossy();
 
         match block_model_definitions.get(*id).unwrap() {
-            craftmine_asset::BlockModelDefinition::Simple(variants) => {
+            craftmine_asset_java::BlockModelDefinition::Simple(variants) => {
                 for (state, models) in variants {
-                    let mut parent = block_models.get(&models.first().unwrap().model);
+                    let model = models.first().unwrap();
+                    let mut parent = block_models.get(&model.model);
 
                     let mut textures = HashMap::new();
                     let mut elements = None;
@@ -130,7 +131,7 @@ pub fn load_block_model_definitions(
                     }
                 }
             }
-            craftmine_asset::BlockModelDefinition::MultiPart(_multi_part_selectors) => {}
+            craftmine_asset_java::BlockModelDefinition::MultiPart(_multi_part_selectors) => {}
         }
     }
 }
@@ -139,32 +140,45 @@ pub fn bake_block_model(
     texture_atlas: &TextureAtlasLayout,
     texture_atlas_sources: &TextureAtlasSources,
 
-    textures: HashMap<&String, &craftmine_asset::Texture>,
-    elements: &Vec<craftmine_asset::BlockElement>,
+    textures: HashMap<&String, &craftmine_asset_java::Texture>,
+    elements: &Vec<craftmine_asset_java::BlockElement>,
 ) -> BlockModel {
     let mut baked_model = BlockModel::default();
     for element in elements {
         let min = element.from / 16.0;
         let max = element.to / 16.0;
+        let rot_pivot = element.rotation.as_ref().map_or(Vec3::ZERO, |rotation| rotation.origin / 16.0);
+        let rot = element.rotation.as_ref().map_or(Quat::IDENTITY, |rotation| Quat::from_axis_angle(match rotation.axis {
+            craftmine_asset_java::Axis::X => Vec3::X,
+            craftmine_asset_java::Axis::Y => Vec3::Y,
+            craftmine_asset_java::Axis::Z => Vec3::Z,
+        }, rotation.angle.to_radians()));
 
         if let Some(element_face) = &element.faces.down {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.x, min.z, max.x, max.z], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(max.x, min.y, max.z),
-                Vec3A::new(min.x, min.y, max.z),
-                Vec3A::new(min.x, min.y, min.z),
-                Vec3A::new(max.x, min.y, min.z),
-            ]);
+                Vec3::new(min.x, min.y, min.z),
+                Vec3::new(max.x, min.y, min.z),
+                Vec3::new(max.x, min.y, max.z),
+                Vec3::new(min.x, min.y, max.z),
+            ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [0.0, -1.0, 0.0],
                 [0.0, -1.0, 0.0],
@@ -172,31 +186,38 @@ pub fn bake_block_model(
                 [0.0, -1.0, 0.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.min.x, uv_rect.min.y],
                 [uv_rect.max.x, uv_rect.min.y],
                 [uv_rect.max.x, uv_rect.max.y],
                 [uv_rect.min.x, uv_rect.max.y],
+                [uv_rect.min.x, uv_rect.min.y],
             ]);
         }
 
         if let Some(element_face) = &element.faces.up {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.x, min.z, max.x, max.z], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(max.x, max.y, min.z),
-                Vec3A::new(min.x, max.y, min.z),
-                Vec3A::new(min.x, max.y, max.z),
-                Vec3A::new(max.x, max.y, max.z),
-            ]);
+                Vec3::new(min.x, max.y, max.z),
+                Vec3::new(max.x, max.y, max.z),
+                Vec3::new(max.x, max.y, min.z),
+                Vec3::new(min.x, max.y, min.z),
+                ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [0.0, 1.0, 0.0],
                 [0.0, 1.0, 0.0],
@@ -204,31 +225,38 @@ pub fn bake_block_model(
                 [0.0, 1.0, 0.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.max.x, uv_rect.min.y],
-                [uv_rect.min.x, uv_rect.min.y],
                 [uv_rect.min.x, uv_rect.max.y],
                 [uv_rect.max.x, uv_rect.max.y],
+                [uv_rect.max.x, uv_rect.min.y],
+                [uv_rect.min.x, uv_rect.min.y],
             ]);
         }
 
         if let Some(element_face) = &element.faces.north {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.x, min.y, max.x, max.y], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(min.x, min.y, max.z),
-                Vec3A::new(max.x, min.y, max.z),
-                Vec3A::new(max.x, max.y, max.z),
-                Vec3A::new(min.x, max.y, max.z),
-            ]);
+                Vec3::new(max.x, min.y, min.z),
+                Vec3::new(min.x, min.y, min.z),
+                Vec3::new(min.x, max.y, min.z),
+                Vec3::new(max.x, max.y, min.z),
+                ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [0.0, 0.0, 1.0],
                 [0.0, 0.0, 1.0],
@@ -236,31 +264,38 @@ pub fn bake_block_model(
                 [0.0, 0.0, 1.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.min.x, uv_rect.min.y],
-                [uv_rect.max.x, uv_rect.min.y],
-                [uv_rect.max.x, uv_rect.max.y],
                 [uv_rect.min.x, uv_rect.max.y],
+                [uv_rect.max.x, uv_rect.max.y],
+                [uv_rect.max.x, uv_rect.min.y],
+                [uv_rect.min.x, uv_rect.min.y],
             ]);
         }
 
         if let Some(element_face) = &element.faces.south {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.x, min.y, max.x, max.y], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(min.x, max.y, min.z),
-                Vec3A::new(max.x, max.y, min.z),
-                Vec3A::new(max.x, min.y, min.z),
-                Vec3A::new(min.x, min.y, min.z),
-            ]);
+                Vec3::new(min.x, min.y, max.z),
+                Vec3::new(max.x, min.y, max.z),
+                Vec3::new(max.x, max.y, max.z),
+                Vec3::new(min.x, max.y, max.z),
+                ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [0.0, 0.0, -1.0],
                 [0.0, 0.0, -1.0],
@@ -268,31 +303,38 @@ pub fn bake_block_model(
                 [0.0, 0.0, -1.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.max.x, uv_rect.min.y],
-                [uv_rect.min.x, uv_rect.min.y],
                 [uv_rect.min.x, uv_rect.max.y],
                 [uv_rect.max.x, uv_rect.max.y],
+                [uv_rect.max.x, uv_rect.min.y],
+                [uv_rect.min.x, uv_rect.min.y],
             ]);
         }
 
         if let Some(element_face) = &element.faces.west {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.z, min.y, max.z, max.y], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(max.x, min.y, min.z),
-                Vec3A::new(max.x, max.y, min.z),
-                Vec3A::new(max.x, max.y, max.z),
-                Vec3A::new(max.x, min.y, max.z),
-            ]);
+                Vec3::new(min.x, min.y, min.z),
+                Vec3::new(min.x, min.y, max.z),
+                Vec3::new(min.x, max.y, max.z),
+                Vec3::new(min.x, max.y, min.z),
+                ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [1.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -300,31 +342,38 @@ pub fn bake_block_model(
                 [1.0, 0.0, 0.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.min.x, uv_rect.min.y],
-                [uv_rect.max.x, uv_rect.min.y],
                 [uv_rect.max.x, uv_rect.max.y],
                 [uv_rect.min.x, uv_rect.max.y],
+                [uv_rect.min.x, uv_rect.min.y],
+                [uv_rect.max.x, uv_rect.min.y],
             ]);
         }
 
         if let Some(element_face) = &element.faces.east {
             let mut texture = &element_face.texture;
-            while let craftmine_asset::Texture::Reference(reference) = texture {
+            while let craftmine_asset_java::Texture::Reference(reference) = texture {
                 texture = textures.get(reference).unwrap();
             }
-            let craftmine_asset::Texture::Value(texture) = texture else {
+            let craftmine_asset_java::Texture::Value(texture) = texture else {
                 panic!()
             };
             let uv_rect = texture_atlas_sources.uv_rect(texture_atlas, texture).unwrap();
+            let uv = element_face.uv.map_or([min.z, min.y, max.z, max.y], |uv| [uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0]);
+            let uv_rect = Rect::new(
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[0]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[1]),
+                uv_rect.min.x.lerp(uv_rect.max.x, uv[2]),
+                uv_rect.min.y.lerp(uv_rect.max.y, uv[3]),
+            );
 
             let baked_element_face =
                 &mut baked_model.0[element_face.cull.map_or(6, |cull| cull as usize)];
             baked_element_face.positions.extend_from_slice(&[
-                Vec3A::new(min.x, min.y, max.z),
-                Vec3A::new(min.x, max.y, max.z),
-                Vec3A::new(min.x, max.y, min.z),
-                Vec3A::new(min.x, min.y, min.z),
-            ]);
+                Vec3::new(max.x, min.y, max.z),
+                Vec3::new(max.x, min.y, min.z),
+                Vec3::new(max.x, max.y, min.z),
+                Vec3::new(max.x, max.y, max.z),
+                ].map(|point| (rot * (point - rot_pivot)) + rot_pivot));
             baked_element_face.normals.extend_from_slice(&[
                 [-1.0, 0.0, 0.0],
                 [-1.0, 0.0, 0.0],
@@ -332,10 +381,10 @@ pub fn bake_block_model(
                 [-1.0, 0.0, 0.0],
             ]);
             baked_element_face.uvs.extend_from_slice(&[
-                [uv_rect.max.x, uv_rect.min.y],
-                [uv_rect.min.x, uv_rect.min.y],
                 [uv_rect.min.x, uv_rect.max.y],
                 [uv_rect.max.x, uv_rect.max.y],
+                [uv_rect.max.x, uv_rect.min.y],
+                [uv_rect.min.x, uv_rect.min.y],
             ]);
         }
     }

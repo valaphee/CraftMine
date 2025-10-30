@@ -18,7 +18,7 @@ pub fn mesh_chunks(
         let mut normals = Vec::new();
         let mut uvs = Vec::new();
         for (i, block) in chunk.0.iter().copied().enumerate() {
-            let block_position = Vec3A::new(
+            let block_position = Vec3::new(
                 (i & 0xF) as f32,
                 ((i >> 4) & 0xF) as f32,
                 ((i >> 8) & 0xF) as f32,

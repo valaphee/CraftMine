@@ -8,7 +8,7 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize, de::IntoDeserializer};
 
-use crate::{Direction, ResourceType, resource_location};
+use crate::{Axis, Direction, ResourceType, resource_location};
 
 #[derive(Serialize, Deserialize, TypePath, Asset)]
 pub struct BlockModel {
@@ -66,7 +66,15 @@ impl<'de> Deserialize<'de> for Texture {
 pub struct BlockElement {
     pub from: Vec3,
     pub to: Vec3,
+    pub rotation: Option<BlockElementRotation>,
     pub faces: BlockElementFaces,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockElementRotation {
+    pub origin: Vec3,
+    pub axis: Axis,
+    pub angle: f32,
 }
 
 #[derive(Serialize, Deserialize)]
