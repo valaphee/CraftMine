@@ -64,8 +64,10 @@ impl<'de> Deserialize<'de> for Texture {
 
 #[derive(Serialize, Deserialize)]
 pub struct BlockElement {
-    pub from: Vec3,
-    pub to: Vec3,
+    #[serde(rename = "from")]
+    pub min: Vec3,
+    #[serde(rename = "to")]
+    pub max: Vec3,
     pub rotation: Option<BlockElementRotation>,
     pub faces: BlockElementFaces,
 }
@@ -75,6 +77,7 @@ pub struct BlockElementRotation {
     pub origin: Vec3,
     pub axis: Axis,
     pub angle: f32,
+    pub rescale: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -93,4 +96,5 @@ pub struct BlockElementFace {
     pub cull: Option<Direction>,
     pub texture: Texture,
     pub uv: Option<[f32; 4]>,
+    pub rotation: u32,
 }
